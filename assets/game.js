@@ -52,7 +52,7 @@ function shell(h){app().innerHTML=h;window.scrollTo(0,0)}
 function hero(sub){return `<div class="hero"><div class="pump">🎃</div><h1>Word Quest</h1><div style="font-weight:600">ศัพท์สนุก · Halloween</div><div class="sub">โรงเรียนปิยมิตรวิทยา ฝ่ายมัธยม${sub?'<br>'+sub:''}</div></div>`}
 async function start(){
   flush();
-  if(TOK){try{ME=await rpc('vocab_me',{p_token:TOK});if(ME.must_change)return changePw();rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});return home()}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok')}else if(e.code==='NETWORK'&&LS.get('kv2_me',null)){ME=LS.get('kv2_me');return home()}}}
+  if(TOK){try{ME=await rpc('vocab_me',{p_token:TOK});if(ME.must_change){TOK=null;LS.del('kv2_tok');return guest()}rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});return home()}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok')}else if(e.code==='NETWORK'&&LS.get('kv2_me',null)){ME=LS.get('kv2_me');return home()}}}
   guest();
 }
 function login(msg){
