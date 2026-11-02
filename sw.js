@@ -1,5 +1,5 @@
-const V='kv-2.0.0';
-const CORE=['./','index.html','assets/game.css?v=2','assets/config.js?v=1','data/words.js?v=2','assets/game.js?v=2','assets/logo.png','assets/fonts/Kanit-Regular.woff','assets/fonts/Kanit-SemiBold.woff','assets/fonts/Fredoka.woff','privacy.html','about.html','manifest.webmanifest'];
+const V='kv-2.0.1';
+const CORE=['./','index.html','assets/game.css?v=2','assets/config.js?v=1','data/words.js?v=2','assets/game.js?v=3','assets/logo.png','assets/fonts/Kanit-Regular.woff','assets/fonts/Kanit-SemiBold.woff','assets/fonts/Fredoka.woff','privacy.html','about.html','manifest.webmanifest'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin)return;

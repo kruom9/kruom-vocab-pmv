@@ -136,7 +136,7 @@ async function finish(){const s=CUR;
   shell(`<div class="card q"><div class="mut">Level ${s.n} · หมวด${esc(LV[s.n].title)}</div><h2>${st?'🎉 ผ่านด่าน!':'👻 ยังไม่ผ่าน'}</h2>
   <div class="big">${sc}/15</div><div class="stars" id="st"><span>★</span><span>★</span><span>★</span></div>
   <div class="mut">${st?'':'ต้องได้ 9 ข้อขึ้นไป · มาลองใหม่พรุ่งนี้นะ'}</div><div id="sv" class="mut">กำลังบันทึกผล…</div>
-  <div style="text-align:left;margin-top:10px">${s.res.map(r=>`<div>${r.w===r.a?'✅':'❌'} <b>${esc(r.w)}</b> · ${esc(W[r.w].th)}${r.w===r.a?'':' <span class="mut">(ตอบ '+esc(r.a)+')</span>'}${W[r.w].t!=='everyday'?' <span class="tag">ข้อสอบ</span>':''}</div>`).join('')}</div>
+  <div style="text-align:left;margin-top:10px">${s.res.map(r=>`<div>${r.w===r.a?'✅':'❌'} <b>${esc(r.w)}</b> · ${esc(W[r.w].th)}${r.w===r.a?'':' <span class="mut">(ตอบ '+esc(r.a)+')</span>'}${(W[r.w].t==='exam'||W[r.w].t==='both')?' <span class="tag">ข้อสอบ</span>':''}</div>`).join('')}</div>
   <button class="btn" id="hm">กลับหน้าแผนที่</button></div>`);
   [0,1,2].forEach(i=>setTimeout(()=>{const e=app().querySelectorAll('#st span')[i];if(e&&i<st)e.classList.add('on')},500+i*450));
   $('#hm').onclick=async()=>{try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){}home()};
