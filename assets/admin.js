@@ -10,7 +10,7 @@ function login(msg){A().innerHTML=`<div class="hero"><div class="pump">🎃</div
   $('#f').onsubmit=async ev=>{ev.preventDefault();try{const d=await rpc('vocab_teacher_login',{p_code:$('#c').value});TOK=d.token;sessionStorage.setItem('kv2_t',TOK);load()}catch(e){$('#e').textContent=e.message}}}
 async function load(){try{D=await rpc('vocab_teacher_day',{p_token:TOK,p_date:F.date||null});render()}catch(e){if(/NO_SESSION/.test(e.code)){sessionStorage.removeItem('kv2_t');TOK=null;login(e.message)}else alert(e.message)}}
 function render(){
-  const S=D.students.filter(s=>s.g>=1&&s.g<=6),rooms=[...new Set(S.map(s=>s.g+'/'+s.r))];
+  const S=D.students.filter(s=>(s.g>=1&&s.g<=6)||location.search.indexOf('qa=1')>=0),rooms=[...new Set(S.map(s=>s.g+'/'+s.r))];
   S.sort((a,b)=>a.g-b.g||a.r-b.r||String(a.name).localeCompare(String(b.name),'th'));const V=S.filter(s=>F.room==='all'||(s.g+'/'+s.r)===F.room),on=V.filter(s=>s.first_login),pl=V.filter(s=>s.today.length);
   const att=V.flatMap(s=>s.today),avg=att.length?(att.reduce((a,b)=>a+b.s,0)/att.length).toFixed(1):'-';
   const per=rooms.map(r=>{const x=S.filter(s=>s.g+'/'+s.r===r);return `<tr><td>ม.${r}</td><td>${x.length}</td><td class="yes">${x.filter(s=>s.first_login).length}</td><td class="no">${x.filter(s=>!s.first_login).length}</td><td>${x.filter(s=>s.today.length).length}</td><td>${(()=>{const a=x.flatMap(s=>s.today);return a.length?(a.reduce((p,q)=>p+q.s,0)/a.length).toFixed(1):'-'})()}</td><td>${(x.reduce((a,s)=>a+s.stars,0)/x.length).toFixed(1)}</td></tr>`}).join('');
