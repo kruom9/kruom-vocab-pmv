@@ -89,19 +89,19 @@ function home(){
   const done=ME.done_today||[],max=ME.max_level,cur=Math.min(ME.level,max);
   const pend=LS.get('kv2_q',[]).length;
   let nodes='';for(let n=1;n<=Math.min(80,Math.max(max+3,8));n++){const l=LV[n];if(!l)break;const b=best(n),soon=n>max,lock=soon||n>ME.level,dt=done.includes(n);
-    nodes+=`<button class="node ${n===cur&&!dt&&!lock?'cur':''} ${lock?'lock':''} ${b&&b.stars?'done':''}" data-n="${n}"><div class="ic">${soon?'🔒':l.icon}</div><div class="n">${n}</div><div class="st">${soon?(n===max+1?'เปิดพรุ่งนี้':'🔒'):lock?'🔒':starsTxt(b?b.stars:0)}</div></button>`}
+    nodes+=`<button class="node ${n===cur&&!dt&&!lock?'cur':''} ${lock?'lock':''} ${b&&b.stars?'done':''}" data-n="${n}"><div class="ic">${soon?'🔒':l.icon}</div><div class="n">${n}</div><div class="st">${soon?'เร็ว ๆ นี้':lock?'🔒':starsTxt(b?b.stars:0)}</div></button>`}
   const l=LV[cur],can=!done.includes(cur)&&cur<=ME.level;
-  shell(`<div class="top"><div class="pump" style="font-size:40px">🎃</div><div class="grow"><b>${esc(ME.name)}</b><div class="mut">ม.${ME.grade}/${ME.room} · เลขที่ ${ME.no} · ${esc(ME.code)}</div></div><span class="pill">⭐ ${ME.stars}</span></div>
+  shell(`<div class="top"><div class="pump" style="font-size:40px">🎃</div><div class="grow"><b>${esc(ME.name)}</b><div class="mut">ม.${ME.grade}/${ME.room} · เลขที่ ${ME.no} · ${esc(ME.code)}</div></div><span class="pill">⭐ ${ME.stars}</span> <span class="pill" id="pts">🏆 ${ME.points||0} แต้ม</span></div>
   <div class="card"><div class="mut">ด่านวันนี้ · Level ${cur} · ${l.band}</div><h2>${l.icon} คำศัพท์วันนี้: หมวด${esc(l.title)}</h2>
   <div class="mut">15 ข้อ · ผ่าน 9 ข้อขึ้นไป · ⭐ 9–10 · ⭐⭐ 11 · ⭐⭐⭐ 12–15 · เล่นได้ 1 ครั้ง/ด่าน/วัน</div>
-  ${can?'<button class="btn" id="go">▶ เริ่มเล่นด่าน '+cur+'</button>':`<div class="card" style="background:var(--card2)">${ME.level>max?'🎉 เล่นด่านของวันนี้แล้ว! ด่านถัดไปปลดล็อกพรุ่งนี้':'✅ วันนี้เล่นด่านนี้แล้ว มาเล่นใหม่พรุ่งนี้นะ'}</div>`}
+  ${can?'<button class="btn" id="go">▶ เริ่มเล่นด่าน '+cur+'</button>':`<div class="card" style="background:var(--card2)">${ME.level>max?'🎉 เล่นครบทุกด่านที่เปิดแล้ว! เก่งมาก':'✅ วันนี้เล่นด่านนี้แล้ว มาเล่นใหม่พรุ่งนี้นะ'}</div>`}
   ${pend?`<div class="mut">⏳ มีผล ${pend} ด่านรอส่ง (จะส่งอัตโนมัติเมื่อมีเน็ต)</div>`:''}</div>
   <h2>🗺️ แผนที่ด่าน</h2><div class="map">${nodes}</div>
-  <div class="mut" style="margin-top:8px">เปิดวันละ 1 ด่าน · ด่านถัดไปเปิดพรุ่งนี้ · ด่านที่ผ่านแล้วเล่นซ้ำได้วันอื่นเพื่อเก็บดาวเพิ่ม</div>
+  <div class="mut" style="margin-top:8px">ผ่านด่าน (9/15 ขึ้นไป) แล้วเล่นด่านถัดไปได้ทันที · แต่ละด่านเล่นได้วันละ 1 ครั้ง · เล่นซ้ำวันอื่นเพื่อเก็บดาวและแต้มเพิ่ม</div>
   <button class="btn sec" id="lo">ออกจากระบบ</button><div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
   if(can)$('#go').onclick=()=>intro(cur);
   $('#lo').onclick=logout;
-  app().querySelectorAll('.node').forEach(b=>b.onclick=()=>{const n=+b.dataset.n;if(n>max)return alert('ด่านถัดไปเปิดพรุ่งนี้ 🎃');if(n>ME.level)return alert('ผ่านด่านก่อนหน้าก่อนนะ');if(done.includes(n))return alert(ERR.ALREADY_TODAY);intro(n)});
+  app().querySelectorAll('.node').forEach(b=>b.onclick=()=>{const n=+b.dataset.n;if(n>max)return alert('ด่านนี้เร็ว ๆ นี้ 🎃');if(n>ME.level)return alert('ผ่านด่านก่อนหน้าก่อนนะ');if(done.includes(n))return alert(ERR.ALREADY_TODAY);intro(n)});
 }
 let CUR=null;
 function intro(n){const l=LV[n];
@@ -135,7 +135,7 @@ async function finish(){const s=CUR;
   const q=LS.get('kv2_q',[]);if(!q.find(j=>j.cid===s.cid))q.push(job);LS.set('kv2_q',q);LS.del('kv2_ip');
   shell(`<div class="card q"><div class="mut">Level ${s.n} · หมวด${esc(LV[s.n].title)}</div><h2>${st?'🎉 ผ่านด่าน!':'👻 ยังไม่ผ่าน'}</h2>
   <div class="big">${sc}/15</div><div class="stars" id="st"><span>★</span><span>★</span><span>★</span></div>
-  <div class="mut">${st?'🔓 ด่านถัดไปปลดล็อกพรุ่งนี้':'ต้องได้ 9 ข้อขึ้นไป · มาลองใหม่พรุ่งนี้นะ'}</div><div id="sv" class="mut">กำลังบันทึกผล…</div>
+  <div class="mut">${st?'🔓 ปลดล็อกด่านถัดไปแล้ว!':'ต้องได้ 9 ข้อขึ้นไป · มาลองใหม่พรุ่งนี้นะ'}</div><div id="sv" class="mut">กำลังบันทึกผล…</div>
   <div style="text-align:left;margin-top:10px">${s.res.map(r=>`<div>${r.w===r.a?'✅':'❌'} <b>${esc(r.w)}</b> · ${esc(W[r.w].th)}${r.w===r.a?'':' <span class="mut">(ตอบ '+esc(r.a)+')</span>'}${(W[r.w].t==='exam'||W[r.w].t==='both')?' <span class="tag">ข้อสอบ</span>':''}</div>`).join('')}</div>
   <button class="btn" id="hm">กลับหน้าแผนที่</button></div>`);
   [0,1,2].forEach(i=>setTimeout(()=>{const e=app().querySelectorAll('#st span')[i];if(e&&i<st)e.classList.add('on')},500+i*450));
