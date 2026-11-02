@@ -15,10 +15,12 @@ async function rpc(fn,args,opt){
   if(d&&d.error){const er=new Error(ERR[d.error]||d.error);er.code=d.error;er.data=d;throw er}
   return d;
 }
-let TOK=LS.get('kv2_tok',null),ME=null,OLDPW=null,GUEST=false;
-function gLoad(){const g=LS.get('kv2_guest',{level:1,levels:[],days:{},points:0});const d=g.days[today()]||[];const st=g.levels.reduce((a,r)=>a+r[1],0);return {name:'นักผจญภัย',grade:'-',room:'-',no:'-',code:'โหมดเล่นฟรี',level:g.level,max_level:80,levels:g.levels,done_today:d,stars:st,points:g.points,guest:true}}
-function gSave(n,sc,st){const g=LS.get('kv2_guest',{level:1,levels:[],days:{},points:0});const d=today();g.days={[d]:(g.days[d]||[]).concat([n])};const r=g.levels.find(x=>x[0]===n);if(r){if(st>r[1])r[1]=st;if(sc>r[2])r[2]=sc}else g.levels.push([n,st,sc]);if(st>0&&n>=g.level)g.level=Math.min(80,n+1);g.points+=sc+5*st;LS.set('kv2_guest',g)}
-function guest(){GUEST=true;TOK=null;ME=gLoad();home()}
+let TOK=LS.get('kv2_tok',null),ME=null;
+// login-only (v4): retired guest / old-system local data never grants access
+['kv2_guest','kv_token','kv_pending'].forEach(k=>LS.del(k));
+if(typeof TOK!=='string'||!TOK){TOK=null;LS.del('kv2_tok')}
+{const ip=LS.get('kv2_ip',null);if(ip&&(!ip.tok||ip.tok!==TOK))LS.del('kv2_ip');LS.set('kv2_q',LS.get('kv2_q',[]).filter(j=>j&&j.tok))}
+function dropSession(){TOK=null;ME=null;LS.del('kv2_tok');LS.del('kv2_me');LS.del('kv2_ip')}
 // ---------- TTS ----------
 let VOICE=null;
 function pickVoice(){if(!('speechSynthesis' in window))return;const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>/en[-_]US/i.test(v.lang))||vs.find(v=>/en[-_]GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null}
@@ -52,27 +54,28 @@ function shell(h){app().innerHTML=h;window.scrollTo(0,0)}
 function hero(sub){return `<div class="hero"><div class="pump">🎃</div><h1>Word Quest</h1><div style="font-weight:600">ศัพท์สนุก · Halloween</div><div class="sub">โรงเรียนปิยมิตรวิทยา ฝ่ายมัธยม${sub?'<br>'+sub:''}</div></div>`}
 async function start(){
   flush();
-  if(TOK){try{ME=await rpc('vocab_me',{p_token:TOK});if(ME.must_change){TOK=null;LS.del('kv2_tok');return guest()}rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});return welcome()}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok')}else if(e.code==='NETWORK'&&LS.get('kv2_me',null)){ME=LS.get('kv2_me');return home()}}}
-  guest();  // no NIDs synced yet: QR scan lands in no-login guest mode (as live 745d5e7); login via guest-home button
+  if(!TOK)return login();   // no session -> login form first (no guest mode)
+  if(await welcome())rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});
 }
 function login(msg){
   shell(hero('เข้าสู่ระบบ')+`<div class="card"><form id="f" autocomplete="on">
   <label>เลขประจำตัวนักเรียน (5 หลัก)<input id="c" inputmode="numeric" pattern="[0-9]*" autocomplete="username" placeholder="เช่น 12345" maxlength="5" required></label>
-  <label>เลขประจำตัวประชาชน 13 หลัก<input id="p" type="password" inputmode="numeric" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" maxlength="17" required></label>
+  <label>เลขบัตรประชาชน (13 หลัก)<input id="p" type="password" inputmode="numeric" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" maxlength="17" required></label>
   <div class="mut">ช่องที่ 1: เลขประจำตัวนักเรียน 5 หลัก · ช่องที่ 2: เลขบัตรประชาชน 13 หลัก (มีขีดหรือเว้นวรรคได้)</div>
-  <div class="err" id="e">${esc(msg||'')}</div><button class="btn" id="go">เข้าสู่ระบบ</button></form><button class="btn sec" id="gp">▶ เล่นเลย (ไม่ต้องใส่รหัส)</button></div>
+  <div class="err" id="e">${esc(msg||'')}</div><button class="btn" id="go">เข้าสู่ระบบ</button></form></div>
   <div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
-  $('#gp').onclick=guest;
-  $('#f').onsubmit=async ev=>{ev.preventDefault();GUEST=false;const c=$('#c').value.replace(/\s/g,''),p=$('#p').value.replace(/[\s-]/g,'');$('#e').textContent='';
+  $('#f').onsubmit=async ev=>{ev.preventDefault();const c=$('#c').value.replace(/\s/g,''),p=$('#p').value.replace(/[\s-]/g,'');$('#e').textContent='';
     if(!/^[0-9]{5}$/.test(c))return $('#e').textContent='เลขประจำตัวนักเรียนต้องมี 5 หลัก';
     $('#go').disabled=true;
     try{const d=await rpc('vocab_login',{p_code:c,p_password:p});$('#p').value='';TOK=d.token;LS.set('kv2_tok',TOK);welcome()}
     catch(e){$('#e').textContent=e.code==='LOCKED'&&e.data?`ใส่ผิดหลายครั้ง รอ ${e.data.wait_s} วินาทีแล้วลองใหม่`:e.message;$('#go').disabled=false}};
 }
 async function welcome(){
-  try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok');return login(e.message)}if(!ME)return login(e.message)}
+  if(!TOK){login();return false}
+  try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){ME=null;if(e.code!=='NETWORK')dropSession();login(e.message);return false}
+  if(!ME||ME.must_change){dropSession();login();return false}
   LS.set('kv2_me',ME);
-  const ip=LS.get('kv2_ip',null);if(ip&&ip.tok===TOK&&ip.date===today()&&LV[ip.n])return play(ip);
+  const ip=LS.get('kv2_ip',null);if(ip&&ip.tok===TOK&&ip.date===today()&&LV[ip.n]){play(ip);return true}
   const max=ME.max_level,cur=Math.min(ME.level,max),done=(ME.done_today||[]).includes(cur),fin=ME.level>max;
   shell(hero()+`<div class="card q" id="wel"><div style="font-size:56px">🎃</div><h2 id="wh">ยินดีต้อนรับเข้าสู่ระบบ</h2>
   <div class="big" id="wn" style="font-size:28px">${esc(ME.name)}</div><div class="mut">ม.${ME.grade}/${ME.room} · เลขที่ ${ME.no}</div>
@@ -81,11 +84,12 @@ async function welcome(){
   <button class="btn sec" id="wm">🗺️ ไปหน้าแผนที่ด่าน</button><button class="btn sec" id="wd">📊 ข้อมูลของฉัน</button></div>`);
   if($('#ws'))$('#ws').onclick=()=>startLevel(cur);
   $('#wm').onclick=home;$('#wd').onclick=myDash;
+  return true;
 }
 const bkk=(iso,o)=>iso?new Date(iso).toLocaleString('th-TH',Object.assign({timeZone:'Asia/Bangkok'},o||{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})):'-';
 const peakTxt=d=>d.peak_date?`${new Date(d.peak_date+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short'})} ช่วง ${String(d.peak_hour).padStart(2,'0')}:00–${String(d.peak_hour+1).padStart(2,'0')}:00 น. (${d.peak_n} ครั้ง)`:'ยังไม่เคยเล่น';
 async function myDash(){
-  let d;try{d=await rpc('vocab_my_dash',{p_token:TOK})}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok');return login(e.message)}return alert(e.message)}
+  let d;try{d=await rpc('vocab_my_dash',{p_token:TOK})}catch(e){if(e.code==='NO_SESSION'){dropSession();return login(e.message)}return alert(e.message)}
   const cur=Math.min(d.level,d.max_level);
   shell(`<div class="card" id="md"><h2>📊 ข้อมูลของฉัน</h2><div class="big" style="font-size:22px">${esc(d.name)}</div><div class="mut">ม.${d.g}/${d.r} · เลขที่ ${d.no} · เวลาไทย</div>
   <div class="dgrid"><div><b id="mdl">${cur}</b><span>เลเวลปัจจุบัน</span></div><div><b>${d.stars}</b><span>⭐ ดาวรวม</span></div><div><b>${d.points}</b><span>🏆 แต้ม</span></div><div><b id="mda">${d.attempts}</b><span>ครั้งที่เล่น</span></div></div>
@@ -96,29 +100,12 @@ async function myDash(){
   <button class="btn" id="mdb">⬅ กลับ</button></div>`);
   $('#mdb').onclick=welcome;
 }
-function startLevel(n){CUR={tok:TOK,n,date:today(),qs:buildLevel(n),i:0,res:[],started:new Date().toISOString(),cid:n+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)};LS.set('kv2_ip',CUR);play(CUR)}
-function confirmMe(d){
-  shell(hero()+`<div class="card q"><div style="font-size:56px">👻</div><h2>คุณคือ ${esc(d.name)} ใช่ไหม?</h2><div class="mut">ม.${d.grade}/${d.room} · เลขที่ ${d.no}</div>
-  <button class="btn" id="y">✅ ใช่ฉัน</button><button class="btn sec" id="n">❌ ไม่ใช่ (กลับไปใส่เลขใหม่)</button></div>`);
-  $('#n').onclick=()=>{logout()};
-  $('#y').onclick=async()=>{$('#y').disabled=true;try{ME=await rpc('vocab_me',{p_token:TOK});rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});if(ME.must_change)changePw();else home()}catch(e){login(e.message)}};
-}
-function changePw(){
-  shell(hero()+`<div class="card"><h2>🔐 ตั้งรหัสผ่านของตัวเอง</h2><div class="mut">เข้าครั้งแรกต้องตั้งรหัสใหม่ก่อนเล่น · อย่างน้อย 6 ตัว · ห้ามซ้ำรหัสเริ่มต้น · อย่าบอกเพื่อนนะ</div>
-  <form id="f">${OLDPW?'':'<input id="o" type="password" placeholder="รหัสผ่านเดิม (รหัสเริ่มต้น)" required>'}
-  <input id="p1" type="password" autocomplete="new-password" placeholder="รหัสผ่านใหม่" minlength="6" required>
-  <input id="p2" type="password" autocomplete="new-password" placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง" minlength="6" required>
-  <div class="err" id="e"></div><button class="btn" id="go">บันทึกรหัสผ่าน</button></form><button class="btn sec" id="lo">ออกจากระบบ</button></div>`);
-  $('#lo').onclick=logout;
-  $('#f').onsubmit=async ev=>{ev.preventDefault();const a=$('#p1').value,b=$('#p2').value,o=OLDPW||$('#o').value;
-    if(a.length<6)return $('#e').textContent=ERR.TOO_SHORT;if(a!==b)return $('#e').textContent='รหัสทั้งสองช่องไม่ตรงกัน';if(a===o)return $('#e').textContent=ERR.SAME_AS_INITIAL;
-    $('#go').disabled=true;try{await rpc('vocab_change_password',{p_token:TOK,p_old:o,p_new:a});OLDPW=null;ME=await rpc('vocab_me',{p_token:TOK});home()}
-    catch(e){$('#e').textContent=e.message;$('#go').disabled=false;if(e.code==='BAD_OLD'){OLDPW=null;changePw()}}};
-}
-function logout(){if(TOK)rpc('vocab_event',{p_token:TOK,p_kind:'session_end'}).catch(()=>{});TOK=null;ME=null;LS.del('kv2_tok');LS.del('kv2_me');OLDPW=null;login()}
+function startLevel(n){if(!TOK||!ME)return login();CUR={tok:TOK,n,date:today(),qs:buildLevel(n),i:0,res:[],started:new Date().toISOString(),cid:n+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)};LS.set('kv2_ip',CUR);play(CUR)}
+function logout(){const t=TOK;if(t)rpc('vocab_event',{p_token:t,p_kind:'session_end'}).catch(()=>{}).then(()=>rpc('vocab_logout',{p_token:t})).catch(()=>{});dropSession();login()}
 function best(n){const r=(ME.levels||[]).find(x=>x[0]===n);return r?{stars:r[1],score:r[2]}:null}
 function home(){
-  if(GUEST)ME=gLoad();else LS.set('kv2_me',ME);
+  if(!TOK||!ME)return login();
+  LS.set('kv2_me',ME);
   const ip=LS.get('kv2_ip',null);if(ip&&ip.tok===TOK&&ip.date===today()&&LV[ip.n])return play(ip);
   const done=ME.done_today||[],max=ME.max_level,cur=Math.min(ME.level,max);
   const pend=LS.get('kv2_q',[]).length;
@@ -132,19 +119,19 @@ function home(){
   ${pend?`<div class="mut">⏳ มีผล ${pend} ด่านรอส่ง (จะส่งอัตโนมัติเมื่อมีเน็ต)</div>`:''}</div>
   <h2>🗺️ แผนที่ด่าน</h2><div class="map">${nodes}</div>
   <div class="mut" style="margin-top:8px">ผ่านด่าน (9/15 ขึ้นไป) แล้วเล่นด่านถัดไปได้ทันที · แต่ละด่านเล่นได้วันละ 1 ครั้ง · เล่นซ้ำวันอื่นเพื่อเก็บดาวและแต้มเพิ่ม</div>
-  ${GUEST?'<button class="btn sec" id="lo">มีรหัสนักเรียน? เข้าสู่ระบบ</button>':'<button class="btn sec" id="lo">ออกจากระบบ</button>'}<div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
+  <button class="btn sec" id="lo">ออกจากระบบ</button><div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
   if(can)$('#go').onclick=()=>intro(cur);
-  $('#lo').onclick=GUEST?()=>{GUEST=false;login()}:logout;
+  $('#lo').onclick=logout;
   app().querySelectorAll('.node').forEach(b=>b.onclick=()=>{const n=+b.dataset.n;if(n>max)return alert('ด่านนี้เร็ว ๆ นี้ 🎃');if(n>ME.level)return alert('ผ่านด่านก่อนหน้าก่อนนะ');if(done.includes(n))return alert(ERR.ALREADY_TODAY);intro(n)});
 }
 let CUR=null;
-function intro(n){const l=LV[n];
+function intro(n){if(!TOK||!ME)return login();const l=LV[n];
   shell(`<div class="card q"><div class="mut">Level ${n} · ${l.band}</div><div style="font-size:64px">${l.icon}</div><h2>คำศัพท์วันนี้: หมวด${esc(l.title)}</h2>
   <div class="mut">15 ข้อ · ตอบแล้วย้อนกลับไม่ได้ · กด 🔊 ฟังเสียงได้<br>ด่านนี้เล่นได้ 1 ครั้งต่อวัน ตั้งใจนะ!</div>
   <button class="btn" id="go">เริ่มเลย 👻</button><button class="btn sec" id="bk">← กลับ</button></div>`);
   $('#bk').onclick=home;$('#go').onclick=()=>startLevel(n);
 }
-function play(s){CUR=s;if(s.i>=s.qs.length)return finish();
+function play(s){if(!TOK||!s||s.tok!==TOK)return login();CUR=s;if(s.i>=s.qs.length)return finish();
   const q=s.qs[s.i],x=W[q.w],t0=Date.now(),one=q.t==='cloze'||q.t==='th';
   let head='';
   if(q.t==='pic')head=`<img class="qimg" src="${img(q.w)}" alt=""><div class="mut" style="margin-top:8px">ภาพนี้คือคำว่าอะไร?</div>`;
@@ -165,17 +152,15 @@ function play(s){CUR=s;if(s.i>=s.qs.length)return finish();
 }
 async function finish(){const s=CUR;
   const sc=s.res.filter(r=>r.w===r.a).length,st=sc>=12?3:sc===11?2:sc>=9?1:0;
-  if(GUEST||!s.tok){gSave(s.n,sc,st);LS.del('kv2_ip');}
   const job={tok:s.tok,n:s.n,res:s.res,started:s.started,cid:s.cid};
-  if(!(GUEST||!s.tok)){const q=LS.get('kv2_q',[]);if(!q.find(j=>j.cid===s.cid))q.push(job);LS.set('kv2_q',q);LS.del('kv2_ip');}
+  {const q=LS.get('kv2_q',[]);if(!q.find(j=>j.cid===s.cid))q.push(job);LS.set('kv2_q',q);LS.del('kv2_ip');}
   shell(`<div class="card q"><div class="mut">Level ${s.n} · หมวด${esc(LV[s.n].title)}</div><h2>${st?'🎉 ผ่านด่าน!':'👻 ยังไม่ผ่าน'}</h2>
   <div class="big">${sc}/15</div><div class="stars" id="st"><span>★</span><span>★</span><span>★</span></div>
   <div class="mut">${st?'🔓 ปลดล็อกด่านถัดไปแล้ว!':'ต้องได้ 9 ข้อขึ้นไป · มาลองใหม่พรุ่งนี้นะ'}</div><div id="sv" class="mut">กำลังบันทึกผล…</div>
   <div style="text-align:left;margin-top:10px">${s.res.map(r=>`<div>${r.w===r.a?'✅':'❌'} <b>${esc(r.w)}</b> · ${esc(W[r.w].th)}${r.w===r.a?'':' <span class="mut">(ตอบ '+esc(r.a)+')</span>'}${(W[r.w].t==='exam'||W[r.w].t==='both')?' <span class="tag">ข้อสอบ</span>':''}</div>`).join('')}</div>
   <button class="btn" id="hm">กลับหน้าแผนที่</button></div>`);
   [0,1,2].forEach(i=>setTimeout(()=>{const e=app().querySelectorAll('#st span')[i];if(e&&i<st)e.classList.add('on')},500+i*450));
-  if(GUEST||!s.tok){$('#hm').onclick=home;$('#sv').textContent='✅ บันทึกในเครื่องนี้แล้ว';return}
-  $('#hm').onclick=async()=>{try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){}home()};
+  $('#hm').onclick=async()=>{try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){if(e.code==='NO_SESSION'){dropSession();return login(e.message)}}home()};
   const ok=await flush();$('#sv').textContent=ok?'✅ บันทึกผลแล้ว':'⏳ ยังส่งผลไม่ได้ จะลองส่งใหม่อัตโนมัติ (อย่าลบข้อมูลเบราว์เซอร์)';
   try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){if(!ME.done_today.includes(s.n))ME.done_today.push(s.n)}
 }
