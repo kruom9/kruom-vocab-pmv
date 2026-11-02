@@ -3,14 +3,14 @@
 const $=s=>document.querySelector(s),A=()=>$('#app');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function rpc(fn,a){let r;try{r=await fetch(VCFG.url+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:VCFG.key,'Content-Type':'application/json'},body:JSON.stringify(a||{})})}catch(e){throw new Error('เชื่อมต่อไม่ได้')}
-  let d=null;try{d=await r.json()}catch(e){}if(!r.ok){const m=(d&&d.message)||'ERROR';const e=new Error(m.includes('NO_SESSION')?'หมดเวลา กรุณาใส่รหัสครูใหม่':m.includes('LOCKED')?'ใส่ผิดหลายครั้ง รอ 10 นาที':m);e.code=m;throw e}
-  if(d&&d.error)throw new Error(d.error==='BAD_LOGIN'?'รหัสครูไม่ถูกต้อง':d.error);return d}
+  let d=null;try{d=await r.json()}catch(e){}if(!r.ok){const m=(d&&d.message)||'ERROR';const e=new Error(m.includes('NO_SESSION')?'หมดเวลา กรุณาเข้าสู่ระบบใหม่':m.includes('LOCKED')?'ใส่ผิดหลายครั้ง รอ 10 นาที':m);e.code=m;throw e}
+  if(d&&d.error)throw new Error(d.error==='BAD_LOGIN'?'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง':d.error);return d}
 let TOK=sessionStorage.getItem('kv2_t'),D=null,SEL=new URLSearchParams(location.search).get('c')||'all';
 const bkk=iso=>iso?new Date(iso).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'})+' น.':'-';
 const hh=h=>String(h).padStart(2,'0')+':00';
 const peak=u=>u.peak_date?`${new Date(u.peak_date+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short'})} ${hh(u.peak_hour)}–${hh(u.peak_hour+1)} น. (${u.peak_n} ครั้ง)`:'-';
-function login(msg){A().innerHTML=`<div class="hero"><div class="pump">📊</div><h1>Dashboard ผู้บริหาร / ห้องเรียน</h1><div class="sub">Word Quest · โรงเรียนปิยมิตรวิทยา ฝ่ายมัธยม</div></div><div class="card" style="max-width:420px;margin:auto"><form id="f"><input id="c" type="password" placeholder="รหัสครู/ผู้บริหาร" autocomplete="current-password" required><div class="err" id="e">${esc(msg||'')}</div><button class="btn">เข้าสู่ระบบ</button></form></div>`;
-  $('#f').onsubmit=async ev=>{ev.preventDefault();try{const d=await rpc('vocab_teacher_login',{p_code:$('#c').value});TOK=d.token;sessionStorage.setItem('kv2_t',TOK);load()}catch(e){$('#e').textContent=e.message}}}
+function login(msg){A().innerHTML=`<div class="hero"><div class="pump">📊</div><h1>Dashboard ผู้บริหาร / ห้องเรียน</h1><div class="sub">Word Quest · โรงเรียนปิยมิตรวิทยา ฝ่ายมัธยม</div></div><div class="card" style="max-width:420px;margin:auto"><form id="f"><label for="u" style="display:block;font-size:14px;margin:0 0 4px;color:var(--gold)">ชื่อผู้ใช้</label><input id="u" type="text" placeholder="ชื่อผู้ใช้" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"><div class="mut" style="font-size:13px;margin:-4px 0 8px">ครูประจำชั้นเว้นว่างชื่อผู้ใช้ได้</div><label for="c" style="display:block;font-size:14px;margin:0 0 4px;color:var(--gold)">รหัสผ่าน</label><input id="c" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" required><div class="err" id="e">${esc(msg||'')}</div><button class="btn">เข้าสู่ระบบ</button></form></div>`;
+  $('#f').onsubmit=async ev=>{ev.preventDefault();try{const d=await rpc('vocab_teacher_login',{p_user:$('#u').value.trim()||null,p_code:$('#c').value});TOK=d.token;sessionStorage.setItem('kv2_t',TOK);load()}catch(e){$('#e').textContent=e.message}}}
 async function load(){const [g,r]=SEL==='all'?[null,null]:SEL.split('/').map(Number);
   try{D=await rpc('vocab_dash',{p_token:TOK,p_grade:g,p_room:r});render()}catch(e){if(/NO_SESSION/.test(e.code)){sessionStorage.removeItem('kv2_t');TOK=null;login(e.message)}else alert(e.message)}}
 function ucard(cls,title,u,emptyTxt){
