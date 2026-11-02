@@ -5,7 +5,7 @@ const LV={};V.levels.forEach(l=>LV[l.n]=l);
 const $=s=>document.querySelector(s),app=()=>$('#app');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
-const ERR={BAD_LOGIN:'รหัสผ่านไม่ถูกต้อง ลองใหม่อีกครั้ง',LOCKED:'ใส่ผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่',NO_SESSION:'หมดเวลาเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',MUST_CHANGE_PASSWORD:'กรุณาตั้งรหัสผ่านใหม่ก่อนเล่น',TOO_SHORT:'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัว',SAME_AS_INITIAL:'รหัสใหม่ต้องไม่ซ้ำรหัสเริ่มต้น',BAD_OLD:'รหัสผ่านเดิมไม่ถูกต้อง',ALREADY_TODAY:'ด่านนี้เล่นไปแล้ววันนี้ มาเล่นใหม่พรุ่งนี้นะ',LEVEL_LOCKED:'ด่านนี้ยังไม่เปิด',BAD_RESULTS:'ข้อมูลไม่ถูกต้อง',NO_STUDENT:'ไม่พบเลขประจำตัวนี้ ตรวจสอบอีกครั้ง',NETWORK:'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'};
+const ERR={BAD_LOGIN:'เลขประจำตัวนักเรียนหรือเลขบัตรประชาชนไม่ถูกต้อง',NO_NID:'ยังไม่มีข้อมูลเลขบัตร กรุณาติดต่อครู',NID_FORMAT:'เลขบัตรประชาชนต้องมี 13 หลัก',LOCKED:'ใส่ผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่',NO_SESSION:'หมดเวลาเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',MUST_CHANGE_PASSWORD:'กรุณาตั้งรหัสผ่านใหม่ก่อนเล่น',TOO_SHORT:'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัว',SAME_AS_INITIAL:'รหัสใหม่ต้องไม่ซ้ำรหัสเริ่มต้น',BAD_OLD:'รหัสผ่านเดิมไม่ถูกต้อง',ALREADY_TODAY:'ด่านนี้เล่นไปแล้ววันนี้ มาเล่นใหม่พรุ่งนี้นะ',LEVEL_LOCKED:'ด่านนี้ยังไม่เปิด',BAD_RESULTS:'ข้อมูลไม่ถูกต้อง',NO_STUDENT:'ไม่พบเลขประจำตัวนี้ ตรวจสอบอีกครั้ง',NETWORK:'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'};
 async function rpc(fn,args,opt){
   let res;
   try{res=await fetch(VCFG.url+'/rest/v1/rpc/'+fn,Object.assign({method:'POST',headers:{apikey:VCFG.key,'Content-Type':'application/json'},body:JSON.stringify(args||{})},opt||{}))}
@@ -52,21 +52,51 @@ function shell(h){app().innerHTML=h;window.scrollTo(0,0)}
 function hero(sub){return `<div class="hero"><div class="pump">🎃</div><h1>Word Quest</h1><div style="font-weight:600">ศัพท์สนุก · Halloween</div><div class="sub">โรงเรียนปิยมิตรวิทยา ฝ่ายมัธยม${sub?'<br>'+sub:''}</div></div>`}
 async function start(){
   flush();
-  if(TOK){try{ME=await rpc('vocab_me',{p_token:TOK});if(ME.must_change){TOK=null;LS.del('kv2_tok');return guest()}rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});return home()}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok')}else if(e.code==='NETWORK'&&LS.get('kv2_me',null)){ME=LS.get('kv2_me');return home()}}}
-  guest();
+  if(TOK){try{ME=await rpc('vocab_me',{p_token:TOK});if(ME.must_change){TOK=null;LS.del('kv2_tok');return guest()}rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});return welcome()}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok')}else if(e.code==='NETWORK'&&LS.get('kv2_me',null)){ME=LS.get('kv2_me');return home()}}}
+  guest();  // no NIDs synced yet: QR scan lands in no-login guest mode (as live 745d5e7); login via guest-home button
 }
 function login(msg){
   shell(hero('เข้าสู่ระบบ')+`<div class="card"><form id="f" autocomplete="on">
-  <label>เลขประจำตัวนักเรียน<input id="c" inputmode="numeric" autocomplete="username" placeholder="เช่น 12345" maxlength="10" required></label>
-  <label>รหัสผ่าน<input id="p" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" required></label>
-  <div class="mut">ครั้งแรก: ใช้รหัสเริ่มต้นกลางที่ครูให้ (มีขีดหรือไม่มีก็ได้) · ครั้งต่อไป: ใช้รหัสที่ตั้งเอง</div>
+  <label>เลขประจำตัวนักเรียน (5 หลัก)<input id="c" inputmode="numeric" pattern="[0-9]*" autocomplete="username" placeholder="เช่น 12345" maxlength="5" required></label>
+  <label>เลขประจำตัวประชาชน 13 หลัก<input id="p" type="password" inputmode="numeric" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" maxlength="17" required></label>
+  <div class="mut">ช่องที่ 1: เลขประจำตัวนักเรียน 5 หลัก · ช่องที่ 2: เลขบัตรประชาชน 13 หลัก (มีขีดหรือเว้นวรรคได้)</div>
   <div class="err" id="e">${esc(msg||'')}</div><button class="btn" id="go">เข้าสู่ระบบ</button></form><button class="btn sec" id="gp">▶ เล่นเลย (ไม่ต้องใส่รหัส)</button></div>
   <div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
   $('#gp').onclick=guest;
-  $('#f').onsubmit=async ev=>{ev.preventDefault();GUEST=false;const c=$('#c').value.trim(),p=$('#p').value;$('#go').disabled=true;$('#e').textContent='';
-    try{const d=await rpc('vocab_login',{p_code:c,p_password:p});TOK=d.token;LS.set('kv2_tok',TOK);OLDPW=p;confirmMe(d)}
+  $('#f').onsubmit=async ev=>{ev.preventDefault();GUEST=false;const c=$('#c').value.replace(/\s/g,''),p=$('#p').value.replace(/[\s-]/g,'');$('#e').textContent='';
+    if(!/^[0-9]{5}$/.test(c))return $('#e').textContent='เลขประจำตัวนักเรียนต้องมี 5 หลัก';
+    $('#go').disabled=true;
+    try{const d=await rpc('vocab_login',{p_code:c,p_password:p});$('#p').value='';TOK=d.token;LS.set('kv2_tok',TOK);welcome()}
     catch(e){$('#e').textContent=e.code==='LOCKED'&&e.data?`ใส่ผิดหลายครั้ง รอ ${e.data.wait_s} วินาทีแล้วลองใหม่`:e.message;$('#go').disabled=false}};
 }
+async function welcome(){
+  try{ME=await rpc('vocab_me',{p_token:TOK})}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok');return login(e.message)}if(!ME)return login(e.message)}
+  LS.set('kv2_me',ME);
+  const ip=LS.get('kv2_ip',null);if(ip&&ip.tok===TOK&&ip.date===today()&&LV[ip.n])return play(ip);
+  const max=ME.max_level,cur=Math.min(ME.level,max),done=(ME.done_today||[]).includes(cur),fin=ME.level>max;
+  shell(hero()+`<div class="card q" id="wel"><div style="font-size:56px">🎃</div><h2 id="wh">ยินดีต้อนรับเข้าสู่ระบบ</h2>
+  <div class="big" id="wn" style="font-size:28px">${esc(ME.name)}</div><div class="mut">ม.${ME.grade}/${ME.room} · เลขที่ ${ME.no}</div>
+  <div id="wl" style="font-size:20px;margin:12px 0">ตอนนี้คุณอยู่เลเวล ${cur}</div>
+  ${fin?'<div class="mut">🎉 เล่นครบทุกด่านที่เปิดแล้ว!</div>':done?'<div class="mut">✅ วันนี้เล่นเลเวลนี้แล้ว มาเล่นใหม่พรุ่งนี้นะ</div>':`<button class="btn" id="ws">เริ่มทำแบบทดสอบ</button>`}
+  <button class="btn sec" id="wm">🗺️ ไปหน้าแผนที่ด่าน</button><button class="btn sec" id="wd">📊 ข้อมูลของฉัน</button></div>`);
+  if($('#ws'))$('#ws').onclick=()=>startLevel(cur);
+  $('#wm').onclick=home;$('#wd').onclick=myDash;
+}
+const bkk=(iso,o)=>iso?new Date(iso).toLocaleString('th-TH',Object.assign({timeZone:'Asia/Bangkok'},o||{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})):'-';
+const peakTxt=d=>d.peak_date?`${new Date(d.peak_date+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short'})} ช่วง ${String(d.peak_hour).padStart(2,'0')}:00–${String(d.peak_hour+1).padStart(2,'0')}:00 น. (${d.peak_n} ครั้ง)`:'ยังไม่เคยเล่น';
+async function myDash(){
+  let d;try{d=await rpc('vocab_my_dash',{p_token:TOK})}catch(e){if(e.code==='NO_SESSION'){TOK=null;LS.del('kv2_tok');return login(e.message)}return alert(e.message)}
+  const cur=Math.min(d.level,d.max_level);
+  shell(`<div class="card" id="md"><h2>📊 ข้อมูลของฉัน</h2><div class="big" style="font-size:22px">${esc(d.name)}</div><div class="mut">ม.${d.g}/${d.r} · เลขที่ ${d.no} · เวลาไทย</div>
+  <div class="dgrid"><div><b id="mdl">${cur}</b><span>เลเวลปัจจุบัน</span></div><div><b>${d.stars}</b><span>⭐ ดาวรวม</span></div><div><b>${d.points}</b><span>🏆 แต้ม</span></div><div><b id="mda">${d.attempts}</b><span>ครั้งที่เล่น</span></div></div>
+  <div class="mut" style="margin:8px 0">เล่นล่าสุด: <b>${esc(bkk(d.last_at))}</b><br>ช่วงที่เล่นมากที่สุด: <b id="mdp">${esc(peakTxt(d))}</b></div>
+  <h3>ประวัติการเล่น</h3><div style="max-height:46vh;overflow:auto"><table class="ht"><tr><th>เมื่อ</th><th>ด่าน</th><th>คะแนน</th><th>ดาว</th></tr>
+  ${d.history.map(h=>`<tr><td>${esc(bkk(h.at))}</td><td>${h.l}</td><td>${h.s}/${h.q}</td><td>${starsTxt(h.st)}</td></tr>`).join('')||'<tr><td colspan="4" class="mut">ยังไม่เคยเล่น</td></tr>'}</table></div>
+  <div class="mut" style="font-size:12px;margin-top:6px">แสดงเฉพาะข้อมูลของคุณเอง</div>
+  <button class="btn" id="mdb">⬅ กลับ</button></div>`);
+  $('#mdb').onclick=welcome;
+}
+function startLevel(n){CUR={tok:TOK,n,date:today(),qs:buildLevel(n),i:0,res:[],started:new Date().toISOString(),cid:n+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)};LS.set('kv2_ip',CUR);play(CUR)}
 function confirmMe(d){
   shell(hero()+`<div class="card q"><div style="font-size:56px">👻</div><h2>คุณคือ ${esc(d.name)} ใช่ไหม?</h2><div class="mut">ม.${d.grade}/${d.room} · เลขที่ ${d.no}</div>
   <button class="btn" id="y">✅ ใช่ฉัน</button><button class="btn sec" id="n">❌ ไม่ใช่ (กลับไปใส่เลขใหม่)</button></div>`);
@@ -112,7 +142,7 @@ function intro(n){const l=LV[n];
   shell(`<div class="card q"><div class="mut">Level ${n} · ${l.band}</div><div style="font-size:64px">${l.icon}</div><h2>คำศัพท์วันนี้: หมวด${esc(l.title)}</h2>
   <div class="mut">15 ข้อ · ตอบแล้วย้อนกลับไม่ได้ · กด 🔊 ฟังเสียงได้<br>ด่านนี้เล่นได้ 1 ครั้งต่อวัน ตั้งใจนะ!</div>
   <button class="btn" id="go">เริ่มเลย 👻</button><button class="btn sec" id="bk">← กลับ</button></div>`);
-  $('#bk').onclick=home;$('#go').onclick=()=>{CUR={tok:TOK,n,date:today(),qs:buildLevel(n),i:0,res:[],started:new Date().toISOString(),cid:n+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)};LS.set('kv2_ip',CUR);play(CUR)};
+  $('#bk').onclick=home;$('#go').onclick=()=>startLevel(n);
 }
 function play(s){CUR=s;if(s.i>=s.qs.length)return finish();
   const q=s.qs[s.i],x=W[q.w],t0=Date.now(),one=q.t==='cloze'||q.t==='th';

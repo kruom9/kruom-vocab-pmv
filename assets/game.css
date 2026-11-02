@@ -55,3 +55,5 @@ input:focus{outline:none;border-color:var(--or)}
 .tag{display:inline-block;background:#0004;border-radius:8px;padding:2px 8px;font-size:13px;color:var(--mut)}
 a{color:var(--gold)}
 .foot{text-align:center;font-size:13px;color:var(--mut);margin-top:18px}
+.dgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}.dgrid div{background:#0003;border-radius:14px;padding:10px;text-align:center}.dgrid b{display:block;font:700 28px Fredoka;color:var(--or)}.dgrid span{font-size:13px;color:var(--mut)}
+.ht{width:100%;border-collapse:collapse;font-size:14px}.ht th,.ht td{padding:5px 4px;border-bottom:1px solid #ffffff22;text-align:left}.ht th{color:var(--gold)}
