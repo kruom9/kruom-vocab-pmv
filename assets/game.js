@@ -59,14 +59,15 @@ async function start(){
   if(await welcome())rpc('vocab_event',{p_token:TOK,p_kind:'session_start'}).catch(()=>{});
 }
 function login(msg){
-  shell(hero('เข้าสู่ระบบ')+`<div class="card"><form id="f" autocomplete="on">
-  <label>เลขประจำตัวนักเรียน (5 หลัก)<input id="c" inputmode="numeric" pattern="[0-9]*" autocomplete="username" placeholder="เช่น 12345" maxlength="12" required></label>
+  shell(hero('เข้าสู่ระบบ')+`<div class="card"><form id="f" autocomplete="on" novalidate>
+  <label>เลขประจำตัวนักเรียน (5 หลัก)<input id="c" inputmode="numeric" autocomplete="username" placeholder="เช่น 12345" maxlength="12" required></label>
   <label>เลขบัตรประชาชน (13 หลัก)<input id="p" type="password" inputmode="numeric" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" maxlength="24" required></label>
   <div class="mut">ช่องที่ 1: เลขประจำตัวนักเรียน 5 หลัก · ช่องที่ 2: เลขบัตรประชาชน 13 หลัก (มีขีดหรือเว้นวรรคได้)</div>
   <div class="err" id="e">${esc(msg||'')}</div><button class="btn" id="go">เข้าสู่ระบบ</button></form></div>
   <div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
   $('#f').onsubmit=async ev=>{ev.preventDefault();const c=digits($('#c').value),p=digits($('#p').value);$('#e').textContent='';
     if(!/^[0-9]{5}$/.test(c))return $('#e').textContent='เลขประจำตัวนักเรียนต้องมี 5 หลัก';
+    if(!p)return $('#e').textContent='กรุณาใส่เลขบัตรประชาชน 13 หลัก';
     $('#go').disabled=true;
     try{const d=await rpc('vocab_login',{p_code:c,p_password:p});$('#p').value='';TOK=d.token;LS.set('kv2_tok',TOK);welcome()}
     catch(e){$('#e').textContent=e.code==='LOCKED'&&e.data?`ใส่เลขบัตรผิดหลายครั้ง รอประมาณ ${Math.max(1,Math.ceil(e.data.wait_s/60))} นาทีแล้วลองใหม่`:e.message;setTimeout(()=>{const g=$('#go');if(g)g.disabled=false},1500)}};
