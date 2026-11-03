@@ -109,7 +109,7 @@ function home(){
   const ip=LS.get('kv2_ip',null);if(ip&&ip.tok===TOK&&ip.date===today()&&LV[ip.n])return play(ip);
   const done=ME.done_today||[],max=ME.max_level,cur=Math.min(ME.level,max);
   const pend=LS.get('kv2_q',[]).length;
-  let nodes='';for(let n=1;n<=Math.min(80,Math.max(max+3,8));n++){const l=LV[n];if(!l)break;const b=best(n),soon=n>max,lock=soon||n>ME.level,dt=done.includes(n);
+  let nodes='';for(let n=1;n<=Math.min(V.levels.length,Math.max(max+3,8));n++){const l=LV[n];if(!l)break;const b=best(n),soon=n>max,lock=soon||n>ME.level,dt=done.includes(n);
     nodes+=`<button class="node ${n===cur&&!dt&&!lock?'cur':''} ${lock?'lock':''} ${b&&b.stars?'done':''}" data-n="${n}"><div class="ic">${soon?'🔒':l.icon}</div><div class="n">${n}</div><div class="st">${soon?'เร็ว ๆ นี้':lock?'🔒':starsTxt(b?b.stars:0)}</div></button>`}
   const l=LV[cur],can=!done.includes(cur)&&cur<=ME.level;
   shell(`<div class="top"><div class="pump" style="font-size:40px">🎃</div><div class="grow"><b>${esc(ME.name)}</b><div class="mut">ม.${ME.grade}/${ME.room} · เลขที่ ${ME.no} · ${esc(ME.code)}</div></div><span class="pill">⭐ ${ME.stars}</span> <span class="pill" id="pts">🏆 ${ME.points||0} แต้ม</span></div>
