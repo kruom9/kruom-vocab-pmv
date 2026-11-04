@@ -17,7 +17,7 @@ function ucard(cls,title,u,emptyTxt){
   if(!u)return `<div class="card ${cls}"><h3>${title}</h3><div class="mut">${emptyTxt}</div></div>`;
   const never=u.attempts===0;
   return `<div class="card ${cls}" id="${cls.slice(1)}"><h3>${title}</h3><div class="nm">${esc(u.name)}</div><div class="mut">ม.${u.g}/${u.r} · เลขที่ ${u.no} · รหัส ${esc(u.code)}</div>
-  <table><tr><th>เลเวล</th><td>${Math.min(u.level,D.max_level)}</td></tr><tr><th>จำนวนครั้งที่เล่น</th><td>${never?'<span class="no">ยังไม่เคยเล่น</span>':u.attempts+' ครั้ง'}</td></tr>
+  <table><tr><th>เลเวล</th><td>${u.level}</td></tr><tr><th>จำนวนครั้งที่เล่น</th><td>${never?'<span class="no">ยังไม่เคยเล่น</span>':u.attempts+' ครั้ง'}</td></tr>
   <tr><th>แต้ม / ดาว</th><td>${u.points} / ${u.stars}⭐</td></tr><tr><th>เวลา (กิจกรรมล่าสุด)</th><td>${never?'ยังไม่เคยเล่น':bkk(u.last_at)}</td></tr><tr><th>ช่วงพีค</th><td>${never?'ยังไม่เคยเล่น':peak(u)}</td></tr></table></div>`}
 function render(){const S=D.scope,sm=D.summary,ex=S.role==='exec';
   const title=S.grade?`ห้อง ม.${S.grade}/${S.room}`:'ทั้งโรงเรียน';
