@@ -75,6 +75,11 @@
     },
     approve: function (token, student, summary) {
       return rpc("assess_approve_report", { p_token: token, p_student: student, p_summary: summary });
+    },
+    exportResults: function (token, studentId) {
+      var args = { p_token: token };
+      if (studentId) args.p_student_id = studentId;
+      return rpc("assess_export_results", args);
     }
   };
 })(window);

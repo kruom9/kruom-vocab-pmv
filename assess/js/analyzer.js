@@ -191,6 +191,100 @@
       term: ["ทบทวนช่องว่างความรู้รายวิชา", "อัปเดตเส้นทางสำรอง", "นัดครูแนะแนวก่อนรอบสมัคร"]
     };
   }
+  function cogLabel(answered, percent) {
+    if (!answered) return "ยังไม่ทำ";
+    if (percent >= 80) return "จุดเด่น";
+    if (percent >= 50) return "ถึงระดับ";
+    return "กำลังพัฒนา";
+  }
+  function potentialRange(n, mean) {
+    if (!n) return "ยังไม่ได้ทำแบบสำรวจศักยภาพที่ส่งเสริมได้";
+    if (mean >= 4) return "ช่วงสูงที่ส่งเสริมต่อได้ดี หากมีแผนต่อเนื่อง";
+    if (mean >= 3) return "ช่วงกลาง–สูง ที่ส่งเสริมตรงจุดแล้วจะเห็นการเติบโตชัด";
+    if (mean >= 2) return "ช่วงที่ยังส่งเสริมได้หลายด้าน ควรเก็บข้อมูลเพิ่มและฝึกสม่ำเสมอ";
+    return "ช่วงเริ่มต้นของการส่งเสริม เน้นสร้างนิสัยและแรงจูงใจ ไม่ติดป้ายจำกัดชะตา";
+  }
+  function studySentence(n, mean) {
+    if (!n) return "ยังไม่ได้ทำแบบสำรวจนิสัยการเรียน";
+    if (mean >= 4) return "นิสัยการเรียนอยู่ในช่วงที่ทำได้สม่ำเสมอ และยังส่งเสริมต่อได้";
+    if (mean >= 3) return "นิสัยการเรียนอยู่ในช่วงที่ทำได้เป็นครั้งคราว ฝึกต่อแล้วจะชัดขึ้น";
+    return "นิสัยการเรียนยังเริ่มต้น ฝึกทีละเรื่องสั้น ๆ จะช่วยให้คงที่ขึ้น";
+  }
+  function computePotentialSurvey(answers) {
+    var bank = global.APP_DATA.assessments && global.APP_DATA.assessments.potentialSurvey;
+    if (!bank) return null;
+    var tree = (answers && answers.potential_survey) || {};
+    var facets = {};
+    var all = [];
+    bank.facets.forEach(function (f) {
+      var vals = [];
+      var obj = tree[f.id] || {};
+      Object.keys(obj).forEach(function (id) {
+        var n = Number(obj[id]);
+        if (!isNaN(n)) vals.push(n);
+      });
+      facets[f.id] = { name: f.name, mean: vals.length ? avg(vals) : null, n: vals.length };
+      vals.forEach(function (n) { all.push(n); });
+    });
+    var mean = all.length ? avg(all) : null;
+    return { facets: facets, mean: mean, n: all.length, sentence: potentialRange(all.length, mean) };
+  }
+  function computeCognition(answers) {
+    var bank = global.APP_DATA.assessments && global.APP_DATA.assessments.cognition;
+    if (!bank) return null;
+    var given = (answers && answers.cognition) || {};
+    var domains = {};
+    var correctAll = 0, totalAll = 0, answeredAll = 0;
+    bank.domains.forEach(function (d) {
+      var items = bank.items.filter(function (it) { return it.domain === d.id; });
+      var correct = 0, answered = 0;
+      items.forEach(function (it) {
+        var raw = given[d.id] && given[d.id][it.id];
+        if (raw != null && String(raw) !== "") {
+          answered++;
+          if (String(raw) === String(it.correct)) correct++;
+        }
+      });
+      var percent = items.length ? Math.round((100 * correct) / items.length) : 0;
+      domains[d.id] = {
+        name: d.name,
+        correct: correct,
+        total: items.length,
+        answered: answered,
+        percent: answered ? percent : null,
+        label: cogLabel(answered, percent)
+      };
+      correctAll += correct;
+      totalAll += items.length;
+      answeredAll += answered;
+    });
+    var overallPercent = totalAll ? Math.round((100 * correctAll) / totalAll) : 0;
+    var overallLabel = cogLabel(answeredAll, overallPercent);
+    var bits = bank.domains.map(function (d) { return d.name + " " + domains[d.id].label; });
+    var sentence = answeredAll
+      ? "แบบสำรวจการคิดและเหตุผลเป็นเครื่องมือต้นฉบับของโรงเรียน ผลเป็นแนวโน้มไม่ใช่คะแนนคงที่: " + bits.join(" · ") + " ภาพรวม " + overallLabel
+      : "ยังไม่ได้ทำแบบสำรวจการคิดและเหตุผล";
+    return {
+      domains: domains,
+      overall: { percent: answeredAll ? overallPercent : null, label: overallLabel, correct: correctAll, total: totalAll },
+      sentence: sentence
+    };
+  }
+  function computeStudyHabits(answers) {
+    var bank = global.APP_DATA.assessments && global.APP_DATA.assessments.studyHabits;
+    if (!bank) return null;
+    var tree = (answers && answers.study_habits) || {};
+    var vals = [];
+    (bank.facets || []).forEach(function (f) {
+      var obj = tree[f.id] || {};
+      Object.keys(obj).forEach(function (id) {
+        var n = Number(obj[id]);
+        if (!isNaN(n)) vals.push(n);
+      });
+    });
+    var mean = vals.length ? avg(vals) : null;
+    return { mean: mean, n: vals.length, sentence: studySentence(vals.length, mean) };
+  }
   function buildReport(stu, answers, progress, editedSummary) {
     var apt = computeAptitude(stu, answers);
     var abil = computeAbility(stu, answers);
@@ -202,6 +296,9 @@
     var paths = pathways(stu, apt, abil, work);
     var plan = monthPlan(stu, tops);
     var conf = confidence(stu, progress);
+    var surveyed = computePotentialSurvey(answers);
+    var thinking = computeCognition(answers);
+    var habits = computeStudyHabits(answers);
     var strengths = tops.map(function (t) {
       return t.name + " — เห็นแนวโน้มจากกิจกรรมและการสังเกต (ข้อมูลจำลอง)";
     });
@@ -209,9 +306,15 @@
       return t.name + " — ส่งเสริมเพิ่มด้วยกิจกรรมสั้นและแบบฝึก (ไม่ใช่ป้ายว่าไม่ถนัด)";
     });
     if (promote.length < 2) promote.push("เสริมแรงจูงใจใฝ่เรียนอย่างสม่ำเสมอ");
+    var extraBits = [];
+    if (surveyed && surveyed.n) extraBits.push(surveyed.sentence);
+    if (thinking && thinking.overall && thinking.overall.label !== "ยังไม่ทำ") extraBits.push(thinking.sentence);
+    if (habits && habits.n) extraBits.push(habits.sentence);
+    if (!extraBits.length) extraBits.push("ยังเก็บแบบสำรวจศักยภาพที่ส่งเสริมได้ การคิดและเหตุผล และนิสัยการเรียนเพิ่มได้");
     var summary = editedSummary || (
       stu.display + " มีจุดเด่นด้าน" + tops.map(function (t) { return t.name; }).join(", ") +
-      " ความสามารถปัจจุบันอยู่ในระดับที่ส่งเสริมต่อได้ และ" + pot.band
+      " ความสามารถปัจจุบันอยู่ในระดับที่ส่งเสริมต่อได้ และ" + pot.band +
+      " " + extraBits.join(" ")
     );
     return {
       studentId: stu.id,
@@ -220,6 +323,9 @@
       strengths: strengths.slice(0, 3),
       promote: promote.slice(0, 3),
       potentialSentence: pot.band,
+      potentialSurvey: surveyed,
+      cognition: thinking,
+      studyHabits: habits,
       aptitude: apt,
       ability: abil,
       psych: psych,
@@ -242,6 +348,10 @@
     buildReport: buildReport,
     computeAptitude: computeAptitude,
     computeAbility: computeAbility,
+    computeCognition: computeCognition,
+    computePotentialSurvey: computePotentialSurvey,
+    computeStudyHabits: computeStudyHabits,
+    cogLabel: cogLabel,
     levelAbility: levelAbility,
     topN: topN
   };

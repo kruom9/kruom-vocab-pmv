@@ -104,6 +104,8 @@ label { font-weight:600; font-size:.92rem; }
   border-radius:10px; z-index:2000; display:none; max-width:320px;
 }
 .err { color: var(--red); min-height:1.2em; font-size:.9rem; }
+.trial-foot { margin:0; padding:10px 16px 18px; color: var(--muted); font-size:.82rem; text-align:center; }
+.disclaimer { background:#F4F7FB; border-left:4px solid var(--accent); padding:10px 12px; margin:8px 0; border-radius:0 8px 8px 0; }
 @media (max-width: 800px) {
   .layout { flex-direction:column; }
   .sidebar { width:100%; display:flex; flex-wrap:wrap; gap:6px; }
