@@ -75,7 +75,10 @@
       psych: { done: false, pct: 0 },
       work: { done: false, pct: 0 },
       exercises: { done: false, pct: 0 },
-      personality: { done: false, pct: 0 }
+      personality: { done: false, pct: 0 },
+      potential_survey: { done: false, pct: 0 },
+      cognition: { done: false, pct: 0 },
+      study_habits: { done: false, pct: 0 }
     };
   }
   function progressOf(id) {
@@ -100,11 +103,24 @@
   function showLoading() {
     $("app").innerHTML = '<div class="login-wrap"><div class="card"><h2>กำลังโหลด</h2><p class="muted">' + SCHOOL + " · ข้อมูลจำลอง</p></div></div>";
   }
+  function ensureBanks() {
+    window.APP_DATA.assessments = window.APP_DATA.assessments || {};
+    var list = (window.ASSESS_002 && window.ASSESS_002.newInstruments) || [];
+    list.forEach(function (inst) {
+      if (inst.key === "potential_survey") window.APP_DATA.assessments.potentialSurvey = inst;
+      if (inst.key === "cognition") window.APP_DATA.assessments.cognition = inst;
+      if (inst.key === "study_habits") window.APP_DATA.assessments.studyHabits = inst;
+    });
+  }
+  function trialFooter() {
+    return '<p class="trial-foot">ใช้ภายใน' + SCHOOL + " · เป็นการทดลองภายใน รอผู้อำนวยการอนุมัติก่อนเผยแพร่นอกโรงเรียน · ข้อมูลผู้เรียนตัวอย่างเป็นข้อมูลจำลอง</p>";
+  }
   async function loadData() {
     var data = await AssessApi.bootstrap(TOK);
     state.user = data.user;
     window.APP_DATA.students = data.students || [];
     window.APP_DATA.assessments = data.catalog || {};
+    ensureBanks();
     STORE = data.store || emptyStore();
     ["answers", "progress", "reports", "teacherNotes", "parentHome", "personality"].forEach(function (k) {
       if (!STORE[k] || typeof STORE[k] !== "object") STORE[k] = {};
@@ -122,7 +138,7 @@
   function render() {
     var root = $("app");
     if (!state.user) {
-      root.innerHTML = renderLogin();
+      root.innerHTML = renderLogin() + trialFooter();
       bindLogin();
       return;
     }
@@ -132,7 +148,7 @@
         '<div class="sub">' + SCHOOL + " · " + esc(state.user.name) + " (" + roleName(state.user.role) + ")</div></div>" +
         '<div class="btn-row" style="margin:0"><button class="btn-secondary" id="btnLogout" style="width:auto">ออกจากระบบ</button></div>' +
       "</div>" +
-      '<div class="layout"><nav class="sidebar" id="nav"></nav><main class="main" id="main"></main></div>';
+      '<div class="layout"><nav class="sidebar" id="nav"></nav><main class="main" id="main"></main></div>' + trialFooter();
     $("btnLogout").onclick = logout;
     renderNav();
     renderMain();
@@ -157,10 +173,10 @@
     } else if (role === "parent") {
       items.push(["parenthome", "แบบสอบถามที่บ้าน"], ["myreport", "รายงานบุตรหลาน"]);
     } else if (role === "teacher" || role === "counselor") {
-      items.push(["students", "รายชื่อผู้เรียน"], ["approve", "คิวอนุมัติรายงาน"], ["observe", "บันทึกสังเกต/รูบริก"], ["modules", "ดู/ทำแบบวัดแทนทดสอบ"]);
+      items.push(["students", "รายชื่อผู้เรียน"], ["approve", "คิวอนุมัติรายงาน"], ["observe", "บันทึกสังเกต/รูบริก"], ["modules", "ดู/ทำแบบวัดแทนทดสอบ"], ["results", "ผลรวมทุกแบบวัด"]);
       if (role === "counselor") items.push(["psychview", "ผลแนะแนว"]);
     } else if (role === "admin") {
-      items.push(["admin", "แดชบอร์ดผู้บริหาร"], ["students", "รายชื่อ (ภาพรวม)"]);
+      items.push(["admin", "แดชบอร์ดผู้บริหาร"], ["students", "รายชื่อ (ภาพรวม)"], ["results", "ผลรวมทุกแบบวัด"]);
     }
     $("nav").innerHTML = items.map(function (it) {
       return '<button data-view="' + it[0] + '" class="' + (state.view === it[0] ? "active" : "") + '">' + it[1] + "</button>";
@@ -186,7 +202,8 @@
       approve: renderApprove,
       observe: renderObserve,
       psychview: renderPsychView,
-      admin: renderAdmin
+      admin: renderAdmin,
+      results: renderResults
     };
     var fn = map[state.view] || renderHome;
     $("main").innerHTML = fn();
@@ -309,6 +326,9 @@
     var mods = [
       { key: "aptitude", title: "ความถนัด 10 ด้าน", desc: "กิจกรรมต้นฉบับด้านละหลายข้อ" },
       { key: "ability", title: "แบบทดสอบความสามารถ", desc: "ตามช่วงชั้น" },
+      { key: "potential_survey", title: "แบบสำรวจศักยภาพที่ส่งเสริมได้", desc: "ช่วงที่ส่งเสริมได้ ไม่ใช่คะแนนคงที่" },
+      { key: "cognition", title: "แบบสำรวจการคิดและเหตุผล", desc: "เครื่องมือต้นฉบับของโรงเรียน ไม่รายงานเป็นคะแนนคงที่" },
+      { key: "study_habits", title: "แบบสำรวจนิสัยการเรียน", desc: "นิสัยการเรียนและความพร้อม" },
       { key: "psych", title: "แบบทดสอบทางจิตวิทยาเพื่อแนะแนว", desc: "แรงจูงใจ · รูปแบบการเรียน · จุดแข็งบุคลิกภาพ — ไม่ใช่เพื่อวินิจฉัยโรค" },
       { key: "exercises", title: "แบบฝึกสั้น", desc: "เห็นผลทันที" },
       { key: "personality", title: "โมดูลพัฒนาบุคลิกภาพ", desc: "กิจกรรมสั้น บันทึกความคืบหน้า" }
@@ -356,6 +376,17 @@
           questions.push(Object.assign({ domain: sec, domainName: labels[sec] }, q));
         });
       });
+    } else if (kind === "potential_survey" || kind === "study_habits" || kind === "cognition") {
+      var bank = kind === "potential_survey" ? A.potentialSurvey : kind === "study_habits" ? A.studyHabits : A.cognition;
+      if (!bank) return questions;
+      var names = {};
+      (bank.facets || bank.domains || []).forEach(function (d) { names[d.id] = d.name; });
+      (bank.items || []).forEach(function (q) {
+        var dom = q.facet || q.domain;
+        var item = Object.assign({ domain: dom, domainName: names[dom] || dom }, q);
+        if (!item.options) item.options = bank.options;
+        questions.push(item);
+      });
     }
     return questions;
   }
@@ -363,21 +394,30 @@
     if (kind === "exercises") { state.view = "exercises"; render(); return; }
     if (kind === "personality") { state.view = "personality"; render(); return; }
     var stu = ensureStudent();
-    var titles = { aptitude: "ความถนัด 10 ด้าน", work: "กลุ่มลักษณะงาน", ability: "ความสามารถตามช่วงชั้น", psych: "จิตวิทยาเพื่อแนะแนว" };
+    ensureBanks();
+    var titles = {
+      aptitude: "ความถนัด 10 ด้าน",
+      work: "กลุ่มลักษณะงาน",
+      ability: "ความสามารถตามช่วงชั้น",
+      psych: "จิตวิทยาเพื่อแนะแนว",
+      potential_survey: "แบบสำรวจศักยภาพที่ส่งเสริมได้",
+      cognition: "แบบสำรวจการคิดและเหตุผล",
+      study_habits: "แบบสำรวจนิสัยการเรียน"
+    };
     state.quiz = { kind: kind, title: titles[kind] || kind, questions: questionsFor(kind, stu), index: 0 };
     state.view = "quiz";
     render();
   }
   function getAnswer(ans, kind, q) {
     if (!ans) return null;
-    if (kind === "aptitude") return ans.aptitude && ans.aptitude[q.domain] && ans.aptitude[q.domain][q.id];
-    if (kind === "work") return ans.work && ans.work[q.domain] && ans.work[q.domain][q.id];
+    if (kind === "aptitude" || kind === "work" || kind === "psych" || kind === "potential_survey" || kind === "study_habits" || kind === "cognition") {
+      return ans[kind] && ans[kind][q.domain] && ans[kind][q.domain][q.id];
+    }
     if (kind === "ability") return ans.ability && ans.ability[q.id];
-    if (kind === "psych") return ans.psych && ans.psych[q.domain] && ans.psych[q.domain][q.id];
     return null;
   }
   function setAnswer(ans, kind, q, val) {
-    if (kind === "aptitude" || kind === "work" || kind === "psych") {
+    if (kind === "aptitude" || kind === "work" || kind === "psych" || kind === "potential_survey" || kind === "study_habits" || kind === "cognition") {
       ans[kind] = ans[kind] || {};
       ans[kind][q.domain] = ans[kind][q.domain] || {};
       ans[kind][q.domain][q.id] = val;
@@ -410,6 +450,8 @@
       '<button class="btn-secondary" style="width:auto" id="btnQuizBack">กลับรายการโมดูล</button>' +
       "</div>" +
       (qz.kind === "psych" ? '<p class="muted">แบบวัดนี้เพื่อแนะแนว ไม่ใช่เพื่อวินิจฉัยโรค</p>' : "") +
+      (qz.kind === "cognition" ? '<p class="muted">' + esc((window.APP_DATA.assessments.cognition || {}).disclaimer || "") + "</p>" : "") +
+      (qz.kind === "potential_survey" ? '<p class="muted">ผลเป็นช่วงศักยภาพที่ส่งเสริมได้ ไม่ใช่คะแนนคงที่</p>' : "") +
       "</div>";
   }
   async function persistQuiz(done) {
@@ -417,7 +459,7 @@
     var qz = state.quiz;
     var ans = answersOf(stu.id);
     var sel = document.querySelector('input[name="opt"]:checked');
-    if (sel) setAnswer(ans, qz.kind, qz.questions[qz.index], Number(sel.value));
+    if (sel) setAnswer(ans, qz.kind, qz.questions[qz.index], qz.kind === "cognition" ? sel.value : Number(sel.value));
     var answered = 0;
     qz.questions.forEach(function (q) {
       if (getAnswer(ans, qz.kind, q) != null) answered++;
@@ -568,6 +610,9 @@
       '<div class="strength"><strong>จุดแข็ง</strong><ol>' + (r.strengths || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ol></div>" +
       '<div class="promote"><strong>สิ่งที่ควรส่งเสริม</strong><ol>' + (r.promote || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ol></div>" +
       "<p><strong>ศักยภาพ:</strong> " + esc(r.potentialSentence) + "</p>" +
+      (r.potentialSurvey && r.potentialSurvey.sentence ? "<p><strong>แบบสำรวจศักยภาพที่ส่งเสริมได้:</strong> " + esc(r.potentialSurvey.sentence) + "</p>" : "") +
+      (r.cognition && r.cognition.sentence ? "<p><strong>แบบสำรวจการคิดและเหตุผล:</strong> " + esc(r.cognition.sentence) + "</p>" : "") +
+      (r.studyHabits && r.studyHabits.sentence ? "<p><strong>แบบสำรวจนิสัยการเรียน:</strong> " + esc(r.studyHabits.sentence) + "</p>" : "") +
       "<p><strong>สิ่งที่โรงเรียนทำ:</strong> " + (r.schoolDoes || []).map(esc).join(" · ") + "</p>" +
       "<p><strong>สิ่งที่บ้านช่วยได้:</strong> " + (r.homeDoes || []).map(esc).join(" · ") + "</p>" +
       (stu.band === "early_primary" ? '<p class="muted">รายงานประถมต้นย่อตามช่วงวัย</p>' : "") +
@@ -638,6 +683,137 @@
       }).join("") + "</tbody></table>";
   }
 
+  var INSTRUMENT_ORDER = [
+    ["aptitude", "ความถนัด"],
+    ["ability", "ความสามารถ"],
+    ["work", "กลุ่มลักษณะงาน"],
+    ["potential_survey", "แบบสำรวจศักยภาพที่ส่งเสริมได้"],
+    ["cognition", "แบบสำรวจการคิดและเหตุผล"],
+    ["study_habits", "แบบสำรวจนิสัยการเรียน"],
+    ["psych", "จิตวิทยาเพื่อแนะแนว"],
+    ["exercises", "แบบฝึกสั้น"],
+    ["personality", "พัฒนาบุคลิกภาพ"],
+    ["parentHome", "แบบสอบถามที่บ้าน"],
+    ["teacherRubric", "บันทึกสังเกต/รูบริก"]
+  ];
+  function fmtScore(n) { return n == null || n === "" || isNaN(Number(n)) ? "—" : Number(n).toFixed(1); }
+  function renderResults() {
+    var role = state.user.role;
+    return '<div class="card"><h2>ผลรวมทุกแบบวัด</h2>' +
+      (role === "admin"
+        ? '<p class="muted">ผลรายคนของข้อมูลจำลอง ไม่แสดงผลจิตวิทยารายบุคคล แดชบอร์ดภาพรวมยังไม่แสดงกลุ่มที่น้อยกว่า 10 คน</p>'
+        : '<p class="muted">รวมทุกแบบวัดที่เก็บไว้ของนักเรียนที่เลือก</p>') +
+      studentPicker() +
+      '<div id="resultsBody"><p class="muted">กำลังโหลด</p></div></div>';
+  }
+  function instrumentBlock(key, fallback, data) {
+    data = data || {};
+    var title = data.title || fallback;
+    var prog = data.progress;
+    var progTxt = "";
+    if (prog) progTxt = (prog.done ? "ทำแล้ว" : "ค้าง") + " " + (prog.pct || 0) + "%";
+    else if (data.available === false) progTxt = "ยังไม่เปิดในรายงานนี้";
+    var lines = "";
+    if (Array.isArray(data.domains)) {
+      lines += "<ul>" + data.domains.map(function (d) {
+        if (d.percent != null) return "<li>" + esc(d.name) + " " + d.percent + "% · " + esc(d.label) + "</li>";
+        if (d.score != null) return "<li>" + esc(d.name) + " " + fmtScore(d.score) + (d.level ? " · " + esc(d.level) : "") + "</li>";
+        return "<li>" + esc(d.name || d.id) + " ยังไม่ทำ</li>";
+      }).join("") + "</ul>";
+    }
+    if (data.overall && data.overall.label) {
+      lines += "<p>ภาพรวม: " + esc(data.overall.label) + (data.overall.percent != null ? " (" + data.overall.percent + "%)" : "") + "</p>";
+    }
+    if (data.range) lines += "<p>" + esc(data.range) + "</p>";
+    if (data.sentence) lines += "<p>" + esc(data.sentence) + "</p>";
+    if (data.mean != null && key === "study_habits") lines += "<p>ค่าเฉลี่ย " + fmtScore(data.mean) + "</p>";
+    if (data.hidden) lines += '<p class="muted">' + esc(data.note || "ไม่แสดง") + "</p>";
+    if (data.visibility === "signal") lines += "<p>" + esc(data.motivationSignal || "") + "</p><p class=\"muted\">" + esc(data.note || "") + "</p>";
+    if (data.visibility === "full") {
+      lines += "<p>แรงจูงใจ " + fmtScore(data.motivation) + " · รูปแบบการเรียน " + fmtScore(data.learningStyle) + " · จุดแข็งบุคลิกภาพ " + fmtScore(data.personality) + "</p>";
+      lines += '<p class="muted">' + esc(data.note || "") + "</p>";
+    }
+    if (data.answered != null && (key === "parentHome" || key === "teacherRubric")) lines += "<p>บันทึกแล้ว " + data.answered + " ข้อ</p>";
+    return '<div class="q-card"><strong>' + esc(title) + "</strong> " + (progTxt ? '<span class="tag">' + esc(progTxt) + "</span>" : "") + lines + "</div>";
+  }
+  function renderExport(payload) {
+    var inst = (payload && payload.instruments) || {};
+    var blocks = INSTRUMENT_ORDER.map(function (pair) { return instrumentBlock(pair[0], pair[1], inst[pair[0]]); }).join("");
+    var disc = (window.APP_DATA.assessments.cognition || {}).disclaimer || "";
+    return blocks +
+      '<div class="disclaimer"><strong>แบบสำรวจการคิดและเหตุผล</strong><p>' + esc(disc) + "</p></div>" +
+      '<div class="btn-row"><button type="button" class="btn-primary" style="width:auto" id="btnDl">ดาวน์โหลด JSON</button>' +
+      '<button type="button" class="btn-secondary" style="width:auto" id="btnCopy">คัดลอกข้อความสรุปภาษาไทย</button></div>';
+  }
+  function thaiSummary(payload) {
+    var lines = [
+      "ผลรวมทุกแบบวัด — " + (payload.display || payload.name || ""),
+      (payload.code ? "รหัส " + payload.code + " · " : "") + (payload.grade || ""),
+      SCHOOL,
+      ""
+    ];
+    var inst = payload.instruments || {};
+    INSTRUMENT_ORDER.forEach(function (pair) {
+      var d = inst[pair[0]] || {};
+      var bit = pair[1];
+      if (d.progress) bit += " · " + (d.progress.done ? "ทำแล้ว" : "ค้าง") + " " + (d.progress.pct || 0) + "%";
+      if (d.range) bit += " — " + d.range;
+      if (d.sentence) bit += " — " + d.sentence;
+      if (d.overall && d.overall.label) bit += " — ภาพรวม " + d.overall.label;
+      if (Array.isArray(d.domains) && d.domains.length) {
+        bit += " — " + d.domains.map(function (x) {
+          if (x.label) return (x.name || x.id) + " " + x.label;
+          if (x.score != null) return (x.name || x.id) + " " + fmtScore(x.score);
+          return (x.name || x.id) + " ยังไม่ทำ";
+        }).join(", ");
+      }
+      if (d.hidden) bit += " — " + (d.note || "ไม่แสดง");
+      if (d.visibility === "signal") bit += " — " + (d.motivationSignal || "");
+      lines.push(bit);
+    });
+    lines.push("");
+    lines.push((window.APP_DATA.assessments.cognition || {}).disclaimer || "");
+    return lines.join("\n");
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); toast("คัดลอกข้อความสรุปแล้ว"); }
+    catch (e) { toast("คัดลอกไม่สำเร็จ"); }
+    ta.remove();
+  }
+  function loadResults() {
+    var box = $("resultsBody");
+    if (!box) return;
+    var stu = ensureStudent();
+    if (!stu) { box.textContent = "ไม่พบผู้เรียน"; return; }
+    AssessApi.exportResults(TOK, stu.id).then(function (payload) {
+      var host = $("resultsBody");
+      if (!host) return;
+      host.innerHTML = renderExport(payload);
+      var dl = $("btnDl");
+      if (dl) dl.onclick = function () {
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "assess-results-" + stu.id + ".json";
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      };
+      var cp = $("btnCopy");
+      if (cp) cp.onclick = function () {
+        var text = thaiSummary(payload);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { toast("คัดลอกข้อความสรุปแล้ว"); }, function () { fallbackCopy(text); });
+        } else fallbackCopy(text);
+      };
+    }).catch(function (e) {
+      var host = $("resultsBody");
+      if (host) host.innerHTML = '<p class="err">' + esc(e.message || "โหลดไม่สำเร็จ") + "</p>";
+    });
+  }
   function collectForm(items, textIds) {
     var values = {};
     items.forEach(function (q) {
@@ -765,6 +941,7 @@
         render();
       });
     });
+    loadResults();
   }
 
   document.addEventListener("DOMContentLoaded", function () {
