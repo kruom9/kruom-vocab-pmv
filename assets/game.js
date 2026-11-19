@@ -13,7 +13,7 @@ function lvl(n){if(LV[n])return LV[n];if(!(n>LAST))return null;const r=seeded(n)
 const $=s=>document.querySelector(s),app=()=>$('#app');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
-const ERR={BAD_LOGIN:'เลขประจำตัวนักเรียนหรือเลขบัตรประชาชนไม่ถูกต้อง',NO_NID:'ยังไม่มีข้อมูลเลขบัตรของนักเรียนคนนี้ กรุณาแจ้งครู',NID_FORMAT:'เลขบัตรประชาชนต้องมี 13 หลัก',LOCKED:'ใส่ผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่',NO_SESSION:'หมดเวลาเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',MUST_CHANGE_PASSWORD:'กรุณาตั้งรหัสผ่านใหม่ก่อนเล่น',TOO_SHORT:'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัว',SAME_AS_INITIAL:'รหัสใหม่ต้องไม่ซ้ำรหัสเริ่มต้น',BAD_OLD:'รหัสผ่านเดิมไม่ถูกต้อง',ALREADY_TODAY:'ด่านนี้เล่นไปแล้ววันนี้ มาเล่นใหม่พรุ่งนี้นะ',LEVEL_LOCKED:'เล่นได้เฉพาะด่านปัจจุบัน (ด่านนี้ผ่านแล้ว หรือยังไม่เปิด)',BAD_RESULTS:'ข้อมูลไม่ถูกต้อง',NO_STUDENT:'ไม่พบเลขประจำตัวนี้ในระบบ ตรวจสอบเลข 5 หลักอีกครั้ง ถ้ายังเข้าไม่ได้ให้แจ้งครู',NETWORK:'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'};
+const ERR={BAD_LOGIN:'เลขประจำตัวนักเรียนหรือเลขบัตรประชาชน/รหัสประจำตัวไม่ถูกต้อง',NO_NID:'ยังไม่มีข้อมูลเลขบัตรของนักเรียนคนนี้ กรุณาแจ้งครู',NID_FORMAT:'เลขบัตรประชาชนต้องมี 13 หลัก หรือรหัสต้องเป็นตัวอักษร 1 ตัวตามด้วยเลข 12 หลัก',LOCKED:'ใส่ผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่',NO_SESSION:'หมดเวลาเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่',MUST_CHANGE_PASSWORD:'กรุณาตั้งรหัสผ่านใหม่ก่อนเล่น',TOO_SHORT:'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัว',SAME_AS_INITIAL:'รหัสใหม่ต้องไม่ซ้ำรหัสเริ่มต้น',BAD_OLD:'รหัสผ่านเดิมไม่ถูกต้อง',ALREADY_TODAY:'ด่านนี้เล่นไปแล้ววันนี้ มาเล่นใหม่พรุ่งนี้นะ',LEVEL_LOCKED:'เล่นได้เฉพาะด่านปัจจุบัน (ด่านนี้ผ่านแล้ว หรือยังไม่เปิด)',BAD_RESULTS:'ข้อมูลไม่ถูกต้อง',NO_STUDENT:'ไม่พบเลขประจำตัวนี้ในระบบ ตรวจสอบเลข 5 หลักอีกครั้ง ถ้ายังเข้าไม่ได้ให้แจ้งครู',NETWORK:'เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'};
 async function rpc(fn,args,opt){
   let res;
   try{res=await fetch(VCFG.url+'/rest/v1/rpc/'+fn,Object.assign({method:'POST',headers:{apikey:VCFG.key,'Content-Type':'application/json'},body:JSON.stringify(args||{})},opt||{}))}
@@ -38,7 +38,7 @@ function say(t,rate){if(!('speechSynthesis' in window))return;try{speechSynthesi
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const img=w=>'img/w/'+W[w].img+'.webp';
 const starsTxt=n=>'★'.repeat(n)+'☆'.repeat(3-n);
-const digits=s=>String(s||'').replace(/[๐-๙]/g,d=>'๐๑๒๓๔๕๖๗๘๙'.indexOf(d)).replace(/[^0-9]/g,'');
+const {digits,loginSecret,OK:SECRET_OK}=window.LOGIN_SECRET;
 const today=()=>new Date(Date.now()+7*3600e3).toISOString().slice(0,10);
 function conflict(a,b){return (V.conflicts||[]).some(g=>g.includes(a)&&g.includes(b))}
 // difficulty curve: more choices, more listening, later Thai-meaning/sentence questions
@@ -69,16 +69,16 @@ async function start(){
 function login(msg){
   shell(hero('เข้าสู่ระบบ')+`<div class="card"><form id="f" autocomplete="on" novalidate>
   <label>เลขประจำตัวนักเรียน (5 หลัก)<input id="c" inputmode="numeric" autocomplete="username" placeholder="เช่น 12345" maxlength="12" required></label>
-  <label>เลขบัตรประชาชน (13 หลัก)<input id="p" type="password" inputmode="numeric" autocomplete="off" placeholder="เลขบัตรประชาชน 13 หลัก" maxlength="24" required></label>
-  <div class="mut">ช่องที่ 1: เลขประจำตัวนักเรียน 5 หลัก · ช่องที่ 2: เลขบัตรประชาชน 13 หลัก (มีขีดหรือเว้นวรรคได้)</div>
+  <label>เลขบัตรประชาชน หรือรหัสประจำตัว<input id="p" type="password" inputmode="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="13 หลัก หรือ A ตามด้วยเลข 12 หลัก" maxlength="40" required></label>
+  <div class="mut">ช่องที่ 1: เลขประจำตัวนักเรียน 5 หลัก · ช่องที่ 2: เลขบัตรประชาชน 13 หลัก หรือรหัสที่ขึ้นต้นด้วยตัวอักษรภาษาอังกฤษ 1 ตัวตามด้วยตัวเลข 12 หลัก (พิมพ์เล็กหรือใหญ่ได้ มีขีดหรือเว้นวรรคได้)</div>
   <div class="err" id="e">${esc(msg||'')}</div><button class="btn" id="go">เข้าสู่ระบบ</button></form></div>
   <div class="foot"><a href="privacy.html">ความเป็นส่วนตัว</a> · <a href="about.html">เกี่ยวกับ</a></div>`);
-  $('#f').onsubmit=async ev=>{ev.preventDefault();const c=digits($('#c').value),p=digits($('#p').value);$('#e').textContent='';
+  $('#f').onsubmit=async ev=>{ev.preventDefault();const c=digits($('#c').value),p=loginSecret($('#p').value);$('#e').textContent='';
     if(!/^[0-9]{5}$/.test(c))return $('#e').textContent='เลขประจำตัวนักเรียนต้องมี 5 หลัก';
-    if(!p)return $('#e').textContent='กรุณาใส่เลขบัตรประชาชน 13 หลัก';
+    if(!SECRET_OK.test(p))return $('#e').textContent='กรุณาใส่เลขบัตรประชาชน 13 หลัก หรือรหัสตัวอักษร 1 ตัวตามด้วยเลข 12 หลัก';
     $('#go').disabled=true;
     try{const d=await rpc('vocab_login',{p_code:c,p_password:p});$('#p').value='';TOK=d.token;LS.set('kv2_tok',TOK);welcome()}
-    catch(e){$('#e').textContent=e.code==='LOCKED'&&e.data?`ใส่เลขบัตรผิดหลายครั้ง รอประมาณ ${Math.max(1,Math.ceil(e.data.wait_s/60))} นาทีแล้วลองใหม่`:e.message;setTimeout(()=>{const g=$('#go');if(g)g.disabled=false},1500)}};
+    catch(e){$('#e').textContent=e.code==='LOCKED'&&e.data?`ใส่รหัสเข้าสู่ระบบผิดหลายครั้ง รอประมาณ ${Math.max(1,Math.ceil(e.data.wait_s/60))} นาทีแล้วลองใหม่`:e.message;setTimeout(()=>{const g=$('#go');if(g)g.disabled=false},1500)}};
 }
 async function welcome(){
   if(!TOK){login();return false}
@@ -185,6 +185,7 @@ async function flush(){if(flushing)return false;flushing=true;let all=true;
   finally{flushing=false}return all}
 window.addEventListener('online',flush);setInterval(flush,30000);
 window.addEventListener('pagehide',()=>{if(TOK)try{fetch(VCFG.url+'/rest/v1/rpc/vocab_event',{method:'POST',keepalive:true,headers:{apikey:VCFG.key,'Content-Type':'application/json'},body:JSON.stringify({p_token:TOK,p_kind:'session_end'})})}catch(e){}});
-window.__vocab={get CUR(){return CUR},W,LV};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.__vocab={get CUR(){return CUR},W,LV,loginSecret,digits};
 start();
 })();
